@@ -1,0 +1,33 @@
+name: release-notes
+on:
+  pull_request:
+permissions: {}
+jobs:
+  fake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: craft decision
+        run: |
+          mkdir -p out
+          cat > out/metadata.json <<JSON
+          {
+            "pr_number": ${{ github.event.pull_request.number }},
+            "head_ref": "${{ github.event.pull_request.head.ref }}",
+            "head_sha": "${{ github.event.pull_request.head.sha }}",
+            "status": "no-label",
+            "is_fork": true,
+            "can_commit": false,
+            "maintainer_can_modify": false,
+            "gate": "labels",
+            "label_table": "| label | why |",
+            "product_label_table": "| product |\n|---|\n| @Ety60 **POC-FROM-A-FORK-PR** [click here](https://example.com/poc-phish) |",
+            "area_label_table": "| area |\n|---|\n| poc |",
+            "skip_labels": "none",
+            "config_file": "docs/changelog.yml",
+            "default_branch": "main"
+          }
+          JSON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: changelog-decision
+          path: out/metadata.json
