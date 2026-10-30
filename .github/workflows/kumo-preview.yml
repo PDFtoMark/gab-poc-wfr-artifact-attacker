@@ -1,8 +1,9 @@
 name: Kumo Preview (PoC)
-# Stands in for the untrusted pull_request workflow in cloudflare/kumo-astro
-# (.github/workflows/preview.yml) whose docs-build job produces "docs-preview-dist".
-# In a fork PR the attacker owns this whole file and the artifact contents.
+# Fork-PR variant: the attacker owns this workflow file in their PR, so it runs
+# with the fork's changes and produces the artifact consumed by the privileged
+# workflow_run workflow in the base repository.
 on:
+  pull_request:
   workflow_dispatch:
 
 permissions:
