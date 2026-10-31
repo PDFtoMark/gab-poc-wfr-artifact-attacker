@@ -1,0 +1,12 @@
+name: Publish to Public NPM
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  forge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: forged upstream step
+        run: |
+          echo "FORGED_RUN_OK branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo none)"
+          echo "marker-from-fork" > /tmp/forged.txt
