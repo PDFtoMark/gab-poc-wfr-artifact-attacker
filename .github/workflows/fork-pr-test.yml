@@ -1,0 +1,22 @@
+name: Test
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: craft
+        run: |
+          mkdir -p out
+          printf '9\n' > out/pr_number.txt
+          printf 'hello\n' > 'out/x$(id).txt'
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: content
+          path: out
