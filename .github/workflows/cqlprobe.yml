@@ -4,7 +4,8 @@ on:
     branches: [main]
 permissions: {}
 jobs:
-  original:
+  forged:
+    name: CodeQL analysis (actions)
     runs-on: ubuntu-latest
     steps:
-      - run: echo "ORIGINAL TRUSTED WORKFLOW JOB"
+      - run: echo "FORGED CANDIDATE WORKFLOW JOB - attacker controls this definition"
