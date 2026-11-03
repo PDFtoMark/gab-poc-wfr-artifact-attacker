@@ -1,0 +1,27 @@
+name: "Cycle Tracking"
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  cycle-tracking:
+    name: "Compare emulator cost vs base branch"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout sources"
+        uses: actions/checkout@v4
+      - name: "Build execution report"
+        run: |
+          python3 .github/scripts/zisk_cycle_diff.py > "$RUNNER_TEMP/report.md"
+      - name: "Upload report artifact"
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cycle-tracking-report
+          path: ${{ runner.temp }}/report.md
+          if-no-files-found: error

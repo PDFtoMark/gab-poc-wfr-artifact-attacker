@@ -1,0 +1,18 @@
+name: ADI Comment WFR Proof
+
+on:
+  workflow_run:
+    workflows: [ADI Test]
+    types:
+      - completed
+
+permissions:
+  actions: read
+  issues: write
+  checks: read
+  statuses: read
+  pull-requests: write
+
+jobs:
+  comment:
+    uses: ./.github/workflows/gab-adi-callee.yml

@@ -1,0 +1,31 @@
+name: GAB Pendle WFR Listener
+on:
+  workflow_run:
+    workflows: ["Auto Sync from Pendle"]
+    types: [completed]
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  probe:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: privileged context probe
+        env:
+          PROBE_SECRET: ${{ secrets.PROBE_SECRET }}
+        run: |
+          echo "EVENT=${{ github.event_name }}"
+          echo "REF=${{ github.ref }}"
+          echo "SHA=${{ github.sha }}"
+          echo "UPSTREAM_NAME=$(jq -r .workflow_run.name "$GITHUB_EVENT_PATH")"
+          echo "UPSTREAM_EVENT=$(jq -r .workflow_run.event "$GITHUB_EVENT_PATH")"
+          echo "UPSTREAM_HEAD_REPO=$(jq -r .workflow_run.head_repository.full_name "$GITHUB_EVENT_PATH")"
+          echo "PROBE_SECRET_PRESENT=$([ -n "$PROBE_SECRET" ] && echo yes || echo no)"
+          echo "ID_TOKEN_URL_PRESENT=$([ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && echo yes || echo no)"
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            RESP=$(curl -s --max-time 20 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")
+            printf '%s' "$RESP" | jq -r '.value // empty' > /tmp/tok
+            echo "OIDC_TOKEN_LEN=$(wc -c < /tmp/tok)"
+            echo "OIDC_SUB=$(cut -d. -f2 /tmp/tok | base64 -d 2>/dev/null | jq -r '.sub // .error // empty')"
+          fi

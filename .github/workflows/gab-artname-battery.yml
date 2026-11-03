@@ -1,0 +1,82 @@
+---
+# Probe: which artifact names does the Actions Results service accept?
+# (create-artifact is the same service endpoint @actions/artifact uses beneath
+# uploadArtifact(), which is where validateArtifactName lives.)
+name: GAB Artifact Name Battery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: probe "."
+        continue-on-error: true
+        uses: ./.github/actions/plant-multi
+        with:
+          name: "."
+          entries: |
+            [{"name":"MARKER_DOT.txt","content":"dot"}]
+
+      - name: probe "p"
+        continue-on-error: true
+        uses: ./.github/actions/plant-multi
+        with:
+          name: "p"
+          entries: |
+            [{"name":"MARKER_P.txt","content":"p"}]
+
+      - name: probe "a/b"
+        continue-on-error: true
+        uses: ./.github/actions/plant-multi
+        with:
+          name: "a/b"
+          entries: |
+            [{"name":"MARKER_SLASH.txt","content":"slash"}]
+
+      - name: probe "x/../../y"
+        continue-on-error: true
+        uses: ./.github/actions/plant-multi
+        with:
+          name: "x/../../y"
+          entries: |
+            [{"name":"MARKER_MIXED.txt","content":"mixed"}]
+
+      - name: probe ".."
+        continue-on-error: true
+        uses: ./.github/actions/plant-multi
+        with:
+          name: ".."
+          entries: |
+            [{"name":"MARKER_DOTDOT.txt","content":"dotdot"}]
+
+      - name: probe ".hidden"
+        continue-on-error: true
+        uses: ./.github/actions/plant-multi
+        with:
+          name: ".hidden"
+          entries: |
+            [{"name":"MARKER_HIDDEN.txt","content":"hidden"}]
+
+      - name: probe "a b" (space)
+        continue-on-error: true
+        uses: ./.github/actions/plant-multi
+        with:
+          name: "a b"
+          entries: |
+            [{"name":"MARKER_SPACE.txt","content":"space"}]
+
+      - name: list accepted artifacts
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[] | "ID=\(.id) NAME=[\(.name)]"'

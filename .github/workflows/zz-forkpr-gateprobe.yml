@@ -1,0 +1,26 @@
+name: zz ForkPR GateProbe
+on:
+  workflow_run:
+    workflows: ["Release notes"]
+    types: [completed]
+permissions: {}
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ctx
+        run: |
+          echo "PR_JSON=${{ toJSON(github.event.workflow_run.pull_requests) }}"
+          echo "UP_EVENT=${{ github.event.workflow_run.event }}"
+          echo "CONCLUSION=${{ github.event.workflow_run.conclusion }}"
+      - name: freshness
+        id: freshness
+        if: github.event.workflow_run.pull_requests[0] != null
+        run: |
+          echo "GATE_STEP_RAN"
+          echo "current=true" >> "$GITHUB_OUTPUT"
+      - name: gated work
+        if: steps.freshness.outputs.current == 'true'
+        run: echo "GATE_OPEN -> privileged work would run here"
+      - name: uncond
+        run: echo "UNCONDITIONAL_DONE current=[${{ steps.freshness.outputs.current }}]"

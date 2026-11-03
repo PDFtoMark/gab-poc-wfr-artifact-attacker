@@ -1,0 +1,15 @@
+name: probe
+on: push
+permissions: {contents: read}
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          whoami; id
+          ls -ld /home/runner/actions-runner /home/runner/actions-runner/externals /home/runner/actions-runner/externals/node20/bin/node 2>&1
+          test -w /home/runner/actions-runner/externals/node20/bin/node && echo NODE_WRITABLE || echo NODE_NOT_WRITABLE
+          test -w /home/runner/actions-runner/externals/node20/bin && echo NODEBIN_WRITABLE || echo NODEBIN_NOT_WRITABLE
+          ls -la /home/runner/work/_actions 2>&1 | head -20
+          echo "RUNNER_TOOL_CACHE=$RUNNER_TOOL_CACHE"; ls "$RUNNER_TOOL_CACHE" 2>/dev/null | head
+          echo "runner_root:"; ls /home/runner/actions-runner 2>&1 | head

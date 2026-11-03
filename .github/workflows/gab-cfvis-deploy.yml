@@ -1,0 +1,57 @@
+name: "GAB CFVis Deploy"
+on:
+  workflow_run:
+    workflows: ["GAB CFVis Build"]
+    types: [completed]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  deploy:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout base repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Download Artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: cfvis-payload
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: downloaded-artifact
+      - name: Read PR Number
+        id: get_pr
+        run: |
+          PR_NUMBER=$(cat downloaded-artifact/pr_number.txt)
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Error: PR number [$PR_NUMBER] is invalid."
+            exit 1
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+      - name: Deploy stand-in
+        run: |
+          echo "WOULD_EXEC: wrangler pages deploy downloaded-artifact/public --project-name toolbox-docs --branch pr-${{ steps.get_pr.outputs.pr_number }}"
+          ls -R downloaded-artifact
+      - name: Post Preview URL Comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.get_pr.outputs.pr_number }}', 10);
+            const deployUrl = 'https://pr-<placeholder>.toolbox-docs.pages.dev';
+            const marker = '<!-- cfvis-poc-marker -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            const existingComment = comments.find(c => c.body.includes(marker));
+            if (existingComment) { console.log("already posted"); return; }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `${marker}\nGAB CFVis privileged comment (privileged workflow, attacker-chosen PR number). View Preview: ${deployUrl}`
+            });

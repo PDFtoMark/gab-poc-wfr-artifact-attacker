@@ -1,0 +1,53 @@
+---
+# Faithful replica of goldmansachs/legend-engine:.github/workflows/test-result.yml
+# download/extract step plus the EnricoMi/publish-unit-test-result-action/composite@v1.35
+# "Install Python dependencies" step (python3 -m pip ... with cwd = workspace).
+name: GAB Legend Publish Test Results
+
+on:
+  workflow_run:
+    workflows: ["GAB Legend Build CI"]
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  test-results:
+    name: Publish Test Results
+    if: "github.event.workflow_run.conclusion != 'skipped'"
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Download and Extract Artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts && cd artifacts
+          artifacts_url=${{ github.event.workflow_run.artifacts_url }}
+          gh api "$artifacts_url" -q '.artifacts[] | [.name, .archive_download_url] | @tsv' | while read artifact
+          do
+            IFS=$'\t' read name url <<< "$artifact"
+            echo "== artifact name=[$name]"
+            gh api $url > "$name.zip"
+            unzip -d "$name" "$name.zip"
+          done
+          echo "== after extraction:"
+          echo "cwd=$(pwd)"
+          ls -la .
+          echo "parent:"; ls -la ..
+          echo "workspace root pip dir?"; ls -la "$GITHUB_WORKSPACE/pip" 2>&1 || true
+
+      - name: Install Python dependencies (exact target composite command)
+        run: |
+          python3 -m pip install -r /dev/null || echo "pip command returned $?"
+
+      - name: Proof of code execution
+        if: always()
+        run: |
+          echo "--- proof file ---"
+          cat /tmp/gab_pip_pwn.txt 2>&1 || echo NO_PROOF

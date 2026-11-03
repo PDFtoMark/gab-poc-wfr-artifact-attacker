@@ -1,0 +1,16 @@
+name: perm-probe-pub
+on: workflow_dispatch
+permissions:
+  issues: write
+  pull-requests: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: artifacts API with token mapped
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          code=$(curl -s -o /tmp/out -w '%{http_code}' -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts")
+          echo "PUBLIC_REPO_artifacts_api=$code"
+          head -c 300 /tmp/out; echo

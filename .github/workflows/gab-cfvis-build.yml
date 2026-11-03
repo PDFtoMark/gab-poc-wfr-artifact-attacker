@@ -1,0 +1,11 @@
+name: "GAB CFVis Build"
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions: read-all
+jobs:
+  build:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo gated
