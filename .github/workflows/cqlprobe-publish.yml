@@ -1,0 +1,76 @@
+name: CQLProbe Publish
+on:
+  workflow_run:
+    workflows: [CQLProbe]
+    types: [requested, in_progress, completed]
+permissions: {}
+jobs:
+  publish:
+    if: github.event.workflow_run.path == '.github/workflows/cqlprobe.yml'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Check out trusted publisher
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Probe metadata and destination
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RID: ${{ github.event.workflow_run.id }}
+        run: |
+          echo "workflow_sha=$GITHUB_WORKFLOW_SHA sha=$GITHUB_SHA workflow_ref=$GITHUB_WORKFLOW_REF"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+          echo "payload_run=$(jq -c '.workflow_run | {id,run_attempt,event,path,head_branch,head_sha,head_repo:.head_repository.id,pull_requests}' "$GITHUB_EVENT_PATH")"
+          python3 - <<'PY'
+          import json, os, urllib.request
+          tok = os.environ["GH_TOKEN"]; repo = os.environ["GITHUB_REPOSITORY"]
+          def call(path, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              req = urllib.request.Request(f"https://api.github.com/repos/{repo}{path}", data=data,
+                                           method="POST" if payload is not None else "GET",
+                                           headers={"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json"})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.load(r)
+          run = call(f"/actions/runs/{os.environ['RID']}")
+          print("RUN", json.dumps({k: run[k] for k in ("id","run_attempt","event","path","head_branch","head_sha","status","conclusion")}))
+          print("RUN_REPO", run["repository"]["id"], run["repository"]["full_name"])
+          print("RUN_HEAD_REPO", run["head_repository"]["id"], run["head_repository"]["full_name"])
+          print("RUN_PULL_REQUESTS", json.dumps(run["pull_requests"]))
+          if run["event"] != "pull_request":
+              raise SystemExit("not a PR run")
+          numbers = sorted({int(p["number"]) for p in run["pull_requests"]}) if run["pull_requests"] else []
+          print("PR_NUMBERS", numbers)
+          assert len(numbers) == 1, "expected one PR"
+          n = numbers[0]
+          pr = call(f"/pulls/{n}")
+          print("PR", json.dumps({"number": pr["number"], "state": pr["state"],
+                "head_sha": pr["head"]["sha"], "head_ref": pr["head"]["ref"],
+                "head_repo_id": (pr["head"]["repo"] or {}).get("id"),
+                "base_ref": pr["base"]["ref"], "base_repo_id": pr["base"]["repo"]["id"],
+                "merge_commit_sha": pr["merge_commit_sha"], "base_sha": pr["base"]["sha"]}))
+          m = call(f"/git/ref/pull/{n}/merge")
+          print("MERGE_REF", json.dumps({"ref": m["ref"], "sha": m["object"]["sha"]}))
+          c = call(f"/git/commits/{m['object']['sha']}")
+          parents = [p["sha"] for p in c["parents"]]
+          print("MERGE_PARENTS", parents)
+          verified = (pr["state"] == "open" and pr["head"]["sha"] == run["head_sha"]
+                      and pr["head"]["ref"] == run["head_branch"]
+                      and (pr["head"]["repo"] or {}).get("id") == run["head_repository"]["id"]
+                      and pr["base"]["repo"]["id"] == run["repository"]["id"]
+                      and pr["base"]["ref"] in {"main", "next"}
+                      and m["ref"] == f"refs/pull/{n}/merge"
+                      and m["object"]["sha"] == pr["merge_commit_sha"]
+                      and parents == [pr["base"]["sha"], pr["head"]["sha"]])
+          print("DESTINATION_VERIFIED", verified, m["object"]["sha"], f"refs/pull/{n}/merge")
+          if verified:
+              out = call(f"/statuses/{m['object']['sha']}", {"context": "CQLProbe-PoC", "state": "success",
+                          "description": "status written by privileged publisher for candidate PR",
+                          "target_url": f"https://github.com/{repo}/actions/runs/{run['id']}"})
+              print("STATUS_WRITE", out.get("context"), out.get("state"), out.get("creator", {}).get("login"))
+          PY

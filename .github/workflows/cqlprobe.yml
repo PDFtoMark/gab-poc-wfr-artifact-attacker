@@ -1,0 +1,10 @@
+name: CQLProbe
+on:
+  pull_request:
+    branches: [main]
+permissions: {}
+jobs:
+  original:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "ORIGINAL TRUSTED WORKFLOW JOB"
