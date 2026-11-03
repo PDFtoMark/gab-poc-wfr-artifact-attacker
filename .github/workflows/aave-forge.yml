@@ -1,0 +1,22 @@
+name: Test
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  forge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build forged artifact
+        run: |
+          mkdir -p content
+          echo 'injected' > 'content/$(id).txt'
+          printf '1' > content/pr_number.txt
+          ls -la content
+      - uses: actions/upload-artifact@v4
+        with:
+          name: content
+          path: content
