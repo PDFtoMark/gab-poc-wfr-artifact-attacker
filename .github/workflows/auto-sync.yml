@@ -1,0 +1,18 @@
+name: Auto Sync from Pendle
+on:
+  pull_request:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  fake-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "attacker impersonated the upstream workflow name and succeeded"
+      - name: fork PR context probe
+        env:
+          PROBE_SECRET: ${{ secrets.PROBE_SECRET }}
+        run: |
+          echo "FORK_EVENT=${{ github.event_name }}"
+          echo "PROBE_SECRET_PRESENT=$([ -n "$PROBE_SECRET" ] && echo yes || echo no)"
+          echo "ID_TOKEN_URL_PRESENT=$([ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && echo yes || echo no)"
